@@ -206,8 +206,23 @@ let getAllFeedbacks = async (req, res, next) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const offset = (page - 1) * limit;
+    const { rating, keyword } = req.query;
+    console.log("Backend nhận được:", { rating, keyword });
+
+    let whereCondition = {};
+
+    if (rating !== undefined && rating !== null && rating !== "") {
+      whereCondition.rate = parseInt(rating);
+    }
+
+    if (keyword && keyword !== "") {
+      whereCondition.content = {
+        [Op.like]: `%${keyword}%`,
+      };
+    }
 
     const { count, rows } = await Feedback.findAndCountAll({
+      where: whereCondition,
       limit: limit,
       offset: offset,
       order: [["created_at", "DESC"]],
@@ -345,8 +360,7 @@ let toggleVisibility = async (req, res, next) => {
     let newStatus = !feedback.is_visible;
     await feedback.update({ is_visible: newStatus });
 
-    //  TÍNH LẠI RATING CHO SẢN PHẨM (Chỉ tính các feedback đang hiện)
-    let productVariant = await feedback.getProduct_variant(); // Hàm sequelize tự sinh
+    let productVariant = await feedback.getProduct_variant();
     if (productVariant) {
       let product = await productVariant.getProduct();
       if (product) {
@@ -358,7 +372,7 @@ let toggleVisibility = async (req, res, next) => {
             [Sequelize.fn("count", Sequelize.col("rate")), "count"],
           ],
           include: { model: Product_Variant, where: { product_id } },
-          // tính điểm các comment ĐANG HIỆN
+
           where: { is_visible: true },
         });
 

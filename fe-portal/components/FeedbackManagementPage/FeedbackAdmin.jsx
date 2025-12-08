@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-
 import {
   getAllFeedbacks,
   deleteFeedback,
@@ -13,28 +12,53 @@ const FeedbackAdmin = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
 
+  const [filterRating, setFilterRating] = useState("");
+  const [searchText, setSearchText] = useState("");
+
   const [replyModalOpen, setReplyModalOpen] = useState(false);
   const [currentFeedbackId, setCurrentFeedbackId] = useState(null);
   const [replyText, setReplyText] = useState("");
 
-  const fetchFeedbacks = async (pageNumber) => {
+  const fetchFeedbacks = async (pageNumber, customRating, customKeyword) => {
     setLoading(true);
     try {
-      const res = await getAllFeedbacks(pageNumber);
+      const r = customRating !== undefined ? customRating : filterRating;
+      const k = customKeyword !== undefined ? customKeyword : searchText;
+
+      console.log("Frontend đang gửi:", {
+        page: pageNumber,
+        rating: r,
+        keyword: k,
+      });
+
+      const res = await getAllFeedbacks(pageNumber, 10, r, k);
 
       setFeedbacks(res.data);
       setTotalPages(res.totalPages);
       setPage(res.currentPage);
     } catch (error) {
-      alert("Lỗi tải dữ liệu. Hãy đảm bảo bạn đã đăng nhập Admin.");
+      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchFeedbacks(page);
+    fetchFeedbacks(page, filterRating, searchText);
   }, [page]);
+
+  const handleSearch = () => {
+    setPage(1);
+    fetchFeedbacks(1, filterRating, searchText);
+  };
+
+  const handleReset = () => {
+    setFilterRating("");
+    setSearchText("");
+    setPage(1);
+
+    fetchFeedbacks(1, "", "");
+  };
 
   const handleToggle = async (id, currentStatus) => {
     try {
@@ -47,23 +71,18 @@ const FeedbackAdmin = () => {
         )
       );
     } catch (error) {
-      console.error(error);
-      alert("Lỗi cập nhật trạng thái!");
+      alert("Lỗi cập nhật!");
     }
   };
 
   const handleDelete = async (id) => {
-    if (
-      window.confirm(
-        "Bạn chắc chắn muốn xóa feedback này? Điểm rating sản phẩm sẽ được tính toán lại."
-      )
-    ) {
+    if (window.confirm("Bạn chắc chắn xóa?")) {
       try {
         await deleteFeedback(id);
-        alert("Xóa thành công!");
-        fetchFeedbacks(page);
+        // Xóa xong load lại trang hiện tại
+        fetchFeedbacks(page, filterRating, searchText);
       } catch (error) {
-        alert("Xóa thất bại!");
+        alert("Lỗi xóa!");
       }
     }
   };
@@ -75,12 +94,9 @@ const FeedbackAdmin = () => {
   };
 
   const handleSendReply = async () => {
-    if (!replyText.trim()) return alert("Vui lòng nhập nội dung!");
-
+    if (!replyText.trim()) return alert("Nhập nội dung!");
     try {
       await replyToFeedback(currentFeedbackId, replyText);
-      alert("Đã gửi câu trả lời!");
-
       setFeedbacks(
         feedbacks.map((item) =>
           item.feedback_id === currentFeedbackId
@@ -88,15 +104,13 @@ const FeedbackAdmin = () => {
             : item
         )
       );
-
-      setReplyModalOpen(false); // Đóng modal
+      setReplyModalOpen(false);
     } catch (error) {
-      alert("Lỗi khi gửi trả lời!");
+      alert("Lỗi gửi!");
     }
   };
 
   const renderStars = (rate) => "⭐".repeat(rate);
-
   const formatDate = (dateString) => {
     if (!dateString) return "";
     return new Date(dateString).toLocaleDateString("vi-VN", {
@@ -108,11 +122,41 @@ const FeedbackAdmin = () => {
     });
   };
 
-  if (loading)
-    return <div className="p-4 text-center">Đang tải dữ liệu...</div>;
-
   return (
     <div className="feedback-wrapper">
+      <div className="filter-bar">
+        <div className="filter-group">
+          <input
+            type="text"
+            placeholder="Tìm nội dung đánh giá..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+          />
+        </div>
+
+        <div className="filter-group">
+          <select
+            value={filterRating}
+            onChange={(e) => setFilterRating(e.target.value)}
+          >
+            <option value="">-- Tất cả sao --</option>
+            <option value="5">5 Sao ⭐⭐⭐⭐⭐</option>
+            <option value="4">4 Sao ⭐⭐⭐⭐</option>
+            <option value="3">3 Sao ⭐⭐⭐</option>
+            <option value="2">2 Sao ⭐⭐</option>
+            <option value="1">1 Sao ⭐</option>
+          </select>
+        </div>
+
+        <button className="btn-search" onClick={handleSearch}>
+          Tìm kiếm
+        </button>
+        <button className="btn-reset" onClick={handleReset}>
+          Làm mới
+        </button>
+      </div>
+
       <div className="table-responsive">
         <table className="table">
           <thead>
@@ -129,7 +173,13 @@ const FeedbackAdmin = () => {
             </tr>
           </thead>
           <tbody>
-            {feedbacks.length > 0 ? (
+            {loading ? (
+              <tr>
+                <td colSpan="9" className="text-center p-4">
+                  Đang tải dữ liệu...
+                </td>
+              </tr>
+            ) : feedbacks.length > 0 ? (
               feedbacks.map((item) => (
                 <tr
                   key={item.feedback_id}
@@ -144,11 +194,9 @@ const FeedbackAdmin = () => {
                     <div>{item.product_name}</div>
                     <span className="badge-variant">{item.variant_info}</span>
                   </td>
-
                   <td className="text-warning text-nowrap">
                     {renderStars(item.rate)} ({item.rate})
                   </td>
-
                   <td>
                     <div>{item.content}</div>
                     {item.reply && (
@@ -159,7 +207,6 @@ const FeedbackAdmin = () => {
                       </div>
                     )}
                   </td>
-
                   <td>
                     <button
                       className="btn-reply"
@@ -168,9 +215,7 @@ const FeedbackAdmin = () => {
                       {item.reply ? "Sửa" : "Trả lời"}
                     </button>
                   </td>
-
                   <td>{formatDate(item.created_at)}</td>
-
                   <td>
                     <button
                       className={`btn-toggle ${
@@ -183,7 +228,6 @@ const FeedbackAdmin = () => {
                       {item.is_visible ? "Ẩn" : "Hiện"}
                     </button>
                   </td>
-
                   <td>
                     <button
                       className="btn-delete"
@@ -196,8 +240,8 @@ const FeedbackAdmin = () => {
               ))
             ) : (
               <tr>
-                <td colSpan="9" className="text-center">
-                  Chưa có đánh giá nào.
+                <td colSpan="9" className="text-center p-4">
+                  Không tìm thấy kết quả nào.
                 </td>
               </tr>
             )}
@@ -223,7 +267,7 @@ const FeedbackAdmin = () => {
             <h3>Trả lời khách hàng</h3>
             <textarea
               rows="4"
-              placeholder="Nhập câu trả lời của shop..."
+              placeholder="Nhập câu trả lời..."
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
             ></textarea>
@@ -243,7 +287,46 @@ const FeedbackAdmin = () => {
       )}
 
       <style jsx>{`
-        /* CSS Cũ */
+        .filter-bar {
+          display: flex;
+          gap: 15px;
+          margin-bottom: 20px;
+          background: #f8f9fa;
+          padding: 15px;
+          border-radius: 8px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+        .filter-group input,
+        .filter-group select {
+          padding: 8px 12px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          outline: none;
+          min-width: 200px;
+        }
+        .btn-search {
+          background: #007bff;
+          color: white;
+          border: none;
+          padding: 9px 18px;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        .btn-search:hover {
+          background: #0056b3;
+        }
+        .btn-reset {
+          background: #6c757d;
+          color: white;
+          border: none;
+          padding: 9px 18px;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        .btn-reset:hover {
+          background: #5a6268;
+        }
         .feedback-wrapper {
           padding: 20px;
           background: #fff;
@@ -271,7 +354,6 @@ const FeedbackAdmin = () => {
           padding: 4px 8px;
           border-radius: 4px;
           font-size: 0.85em;
-          white-space: nowrap;
           display: inline-block;
           margin-top: 4px;
         }
@@ -295,7 +377,6 @@ const FeedbackAdmin = () => {
           padding: 6px 12px;
           border-radius: 4px;
           cursor: pointer;
-          transition: 0.2s;
         }
         .btn-delete:hover {
           background: #c82333;
@@ -319,8 +400,6 @@ const FeedbackAdmin = () => {
           cursor: not-allowed;
           color: #adb5bd;
         }
-
-        /* Nút Ẩn/Hiện */
         .opacity-50 {
           background-color: #f9f9f9;
           color: #999;
@@ -348,8 +427,6 @@ const FeedbackAdmin = () => {
         .btn-show:hover {
           background-color: #218838;
         }
-
-        /* --- CSS MỚI CHO TRẢ LỜI --- */
         .admin-reply-box {
           margin-top: 5px;
           padding: 5px 8px;
@@ -358,7 +435,6 @@ const FeedbackAdmin = () => {
           font-size: 0.9em;
           color: #333;
         }
-
         .btn-reply {
           background: #17a2b8;
           color: white;
@@ -371,8 +447,6 @@ const FeedbackAdmin = () => {
         .btn-reply:hover {
           background: #138496;
         }
-
-        /* Modal Styles */
         .modal-overlay {
           position: fixed;
           top: 0;

@@ -27,12 +27,22 @@ const getAuthHeader = () => {
   return {};
 };
 
-export const getAllFeedbacks = async (page = 1, limit = 10) => {
+export const getAllFeedbacks = async (
+  page = 1,
+  limit = 10,
+  rating = "",
+  keyword = ""
+) => {
   try {
-    const response = await axios.get(
-      `${API_URL}/all?page=${page}&limit=${limit}`,
-      getAuthHeader()
-    );
+    let url = `${API_URL}/all?page=${page}&limit=${limit}`;
+
+    // Nếu có lọc rating thì thêm vào URL
+    if (rating) url += `&rating=${rating}`;
+
+    // Nếu có tìm kiếm thì thêm vào URL
+    if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
+    console.log("Gọi API:", url);
+    const response = await axios.get(url, getAuthHeader());
     return response.data;
   } catch (error) {
     console.error("Lỗi lấy danh sách feedback:", error);

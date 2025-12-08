@@ -5,6 +5,8 @@ const jwtAuth = require("../midlewares/jwtAuth");
 const verifyToken = require("../midlewares/jwtAuth");
 let router = express.Router();
 
+router.get("/all", verifyToken, FeedbackController.getAllFeedbacks);
+
 router.get("/list/:product_id", FeedbackController.list);
 
 router.get("/detail/:product_variant_id", jwtAuth, FeedbackController.detail);
@@ -13,11 +15,10 @@ router.post("/create", jwtAuth, FeedbackController.create);
 
 router.put("/update", jwtAuth, FeedbackController.update);
 
-router.get("/all", verifyToken, FeedbackController.getAllFeedbacks);
-
 router.delete("/:id", verifyToken, FeedbackController.deleteFeedback);
 
 router.put("/toggle/:id", verifyToken, FeedbackController.toggleVisibility);
+
 router.put("/reply/:id", verifyToken, FeedbackController.replyFeedback);
 
 module.exports = router;
