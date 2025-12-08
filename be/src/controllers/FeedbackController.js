@@ -336,6 +336,50 @@ let deleteFeedback = async (req, res, next) => {
     return res.status(500).send("Lỗi khi xóa feedback");
   }
 };
+let toggleVisibility = async (req, res, next) => {
+  let feedback_id = req.params.id;
+
+  try {
+    let feedback = await Feedback.findByPk(feedback_id);
+    if (!feedback) return res.status(404).send("Feedback không tồn tại");
+
+    // 1. Đảo ngược trạng thái (True -> False, False -> True)
+    let newStatus = !feedback.is_visible;
+    await feedback.update({ is_visible: newStatus });
+
+    // 2. TÍNH LẠI RATING CHO SẢN PHẨM (Chỉ tính các feedback đang hiện)
+    let productVariant = await feedback.getProduct_variant(); // Hàm sequelize tự sinh
+    if (productVariant) {
+      let product = await productVariant.getProduct();
+      if (product) {
+        let product_id = product.product_id;
+
+        let [result] = await Feedback.findAll({
+          attributes: [
+            [Sequelize.fn("avg", Sequelize.col("rate")), "avg"],
+            [Sequelize.fn("count", Sequelize.col("rate")), "count"],
+          ],
+          include: { model: Product_Variant, where: { product_id } },
+          // QUAN TRỌNG: Chỉ tính điểm các comment ĐANG HIỆN
+          where: { is_visible: true },
+        });
+
+        let rating = parseFloat(result.dataValues.avg || 0).toFixed(1);
+        let feedback_quantity = parseInt(result.dataValues.count || 0);
+
+        await product.update({ rating, feedback_quantity });
+      }
+    }
+
+    return res.status(200).send({
+      message: newStatus ? "Đã hiển thị feedback" : "Đã ẩn feedback",
+      is_visible: newStatus,
+    });
+  } catch (err) {
+    console.log("Error toggleVisibility:", err);
+    return res.status(500).send("Lỗi server");
+  }
+};
 
 module.exports = {
   create,
@@ -344,4 +388,5 @@ module.exports = {
   list,
   getAllFeedbacks,
   deleteFeedback,
+  toggleVisibility,
 };

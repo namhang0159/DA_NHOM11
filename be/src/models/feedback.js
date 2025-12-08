@@ -28,6 +28,10 @@ const Feedback = sequelize.define(
       type: DataTypes.INTEGER,
       allowNull: false,
     },
+    is_visible: {
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
+    },
   },
   {
     timestamps: true,

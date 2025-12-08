@@ -17,4 +17,6 @@ router.get("/all", verifyToken, FeedbackController.getAllFeedbacks);
 
 router.delete("/:id", verifyToken, FeedbackController.deleteFeedback);
 
+router.put("/toggle/:id", verifyToken, FeedbackController.toggleVisibility);
+
 module.exports = router;

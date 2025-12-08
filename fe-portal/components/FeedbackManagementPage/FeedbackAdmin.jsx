@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
+// --- SỬA LỖI 1: THÊM IMPORT toggleFeedbackVisibility ---
 import {
   getAllFeedbacks,
   deleteFeedback,
+  toggleFeedbackVisibility, // <--- THÊM CÁI NÀY VÀO
 } from "../../services/feedbackService";
 
 const FeedbackAdmin = () => {
@@ -29,6 +31,25 @@ const FeedbackAdmin = () => {
     fetchFeedbacks(page);
   }, [page]);
 
+  const handleToggle = async (id, currentStatus) => {
+    try {
+      // Bây giờ đã import rồi thì dòng này mới chạy được
+      await toggleFeedbackVisibility(id);
+
+      // Cập nhật giao diện
+      setFeedbacks(
+        feedbacks.map((item) =>
+          item.feedback_id === id
+            ? { ...item, is_visible: !currentStatus }
+            : item
+        )
+      );
+    } catch (error) {
+      console.error(error); // Log ra để xem lỗi gì nếu có
+      alert("Lỗi cập nhật trạng thái!");
+    }
+  };
+
   const handleDelete = async (id) => {
     if (
       window.confirm(
@@ -38,7 +59,7 @@ const FeedbackAdmin = () => {
       try {
         await deleteFeedback(id);
         alert("Xóa thành công!");
-        fetchFeedbacks(page); // Load lại trang
+        fetchFeedbacks(page);
       } catch (error) {
         alert("Xóa thất bại!");
       }
@@ -47,7 +68,6 @@ const FeedbackAdmin = () => {
 
   const renderStars = (rate) => "⭐".repeat(rate);
 
-  // Format ngày giờ đẹp
   const formatDate = (dateString) => {
     if (!dateString) return "";
     return new Date(dateString).toLocaleDateString("vi-VN", {
@@ -71,31 +91,55 @@ const FeedbackAdmin = () => {
               <th>ID</th>
               <th>Khách hàng</th>
               <th>Sản phẩm</th>
-              <th>Biến thể</th>
+              {/* <th>Biến thể</th> */}
               <th>Đánh giá</th>
               <th>Nội dung</th>
               <th>Ngày tạo</th>
+              <th>Trạng thái</th> {/* SỬA LỖI 2: Thêm cột này cho khớp */}
               <th>Hành động</th>
             </tr>
           </thead>
           <tbody>
             {feedbacks.length > 0 ? (
               feedbacks.map((item) => (
-                <tr key={item.feedback_id}>
+                // Thêm class mờ đi nếu đang ẩn
+                <tr
+                  key={item.feedback_id}
+                  className={!item.is_visible ? "opacity-50" : ""}
+                >
                   <td>#{item.feedback_id}</td>
                   <td>
                     <div className="fw-bold">{item.customer_name}</div>
                     <small className="text-muted">{item.user_email}</small>
                   </td>
-                  <td>{item.product_name}</td>
                   <td>
+                    <div>{item.product_name}</div>
                     <span className="badge-variant">{item.variant_info}</span>
                   </td>
+                  {/* Gộp biến thể vào cột sản phẩm cho đỡ chật, hoặc bỏ comment th trên */}
+
                   <td className="text-warning text-nowrap">
                     {renderStars(item.rate)} ({item.rate})
                   </td>
                   <td>{item.content}</td>
+
                   <td>{formatDate(item.created_at)}</td>
+
+                  {/* Nút Ẩn/Hiện */}
+                  <td>
+                    <button
+                      className={`btn-toggle ${
+                        item.is_visible ? "btn-hide" : "btn-show"
+                      }`}
+                      onClick={() =>
+                        handleToggle(item.feedback_id, item.is_visible)
+                      }
+                    >
+                      {item.is_visible ? "Ẩn" : "Hiện"}
+                    </button>
+                  </td>
+
+                  {/* Nút Xóa */}
                   <td>
                     <button
                       className="btn-delete"
@@ -117,7 +161,6 @@ const FeedbackAdmin = () => {
         </table>
       </div>
 
-      {/* Pagination */}
       <div className="pagination">
         <button disabled={page <= 1} onClick={() => setPage(page - 1)}>
           &laquo; Trước
@@ -131,6 +174,7 @@ const FeedbackAdmin = () => {
       </div>
 
       <style jsx>{`
+        /* ... Các CSS cũ giữ nguyên ... */
         .feedback-wrapper {
           padding: 20px;
           background: #fff;
@@ -159,6 +203,8 @@ const FeedbackAdmin = () => {
           border-radius: 4px;
           font-size: 0.85em;
           white-space: nowrap;
+          display: inline-block;
+          margin-top: 4px;
         }
         .text-muted {
           color: #6c757d;
@@ -173,7 +219,6 @@ const FeedbackAdmin = () => {
         .text-nowrap {
           white-space: nowrap;
         }
-
         .btn-delete {
           background: #dc3545;
           color: white;
@@ -186,7 +231,6 @@ const FeedbackAdmin = () => {
         .btn-delete:hover {
           background: #c82333;
         }
-
         .pagination {
           display: flex;
           justify-content: center;
@@ -205,6 +249,36 @@ const FeedbackAdmin = () => {
           background: #e9ecef;
           cursor: not-allowed;
           color: #adb5bd;
+        }
+
+        /* --- SỬA LỖI 3: THÊM CSS CHO NÚT ẨN/HIỆN MÀY ĐANG THIẾU --- */
+        .opacity-50 {
+          background-color: #f9f9f9;
+          color: #999;
+        }
+        .btn-toggle {
+          border: none;
+          padding: 5px 10px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 13px;
+          font-weight: 600;
+          min-width: 60px;
+        }
+        .btn-hide {
+          background-color: #ffc107;
+          color: #333;
+        }
+        .btn-hide:hover {
+          background-color: #e0a800;
+        }
+
+        .btn-show {
+          background-color: #28a745;
+          color: white;
+        }
+        .btn-show:hover {
+          background-color: #218838;
         }
       `}</style>
     </div>

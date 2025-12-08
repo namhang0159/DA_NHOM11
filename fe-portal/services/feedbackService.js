@@ -55,3 +55,16 @@ export const deleteFeedback = async (id) => {
     throw error;
   }
 };
+export const toggleFeedbackVisibility = async (id) => {
+  try {
+    const response = await axios.put(
+      `${API_URL}/toggle/${id}`,
+      {},
+      getAuthHeader()
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Lỗi toggle status:", error);
+    throw error;
+  }
+};
