@@ -1,4 +1,5 @@
 const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
 
 const User = require("../models/user");
 
@@ -41,8 +42,21 @@ let login = async (req, res, next) => {
     if (!isPasswordValid) {
       return res.status(401).send("Mật khẩu không chính xác");
     }
+    const accessToken = jwt.sign(
+      {
+        id: admin.user_id,
+        email: admin.email,
+        role_id: admin.role_id,
+      },
+      process.env.ACCESSTOKEN_SECRET_KEY, // Đảm bảo trong .env có biến này
+      { expiresIn: "1d" }
+    );
 
-    return res.send({ email: admin.email, id: admin.user_id });
+    return res.send({
+      message: "Đăng nhập thành công",
+      accessToken: accessToken,
+      user: { email: admin.email, id: admin.user_id },
+    });
   } catch (err) {
     console.log(err);
     return res

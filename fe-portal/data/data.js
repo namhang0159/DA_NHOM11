@@ -19,4 +19,9 @@ export const menu = [
     href: "/customer/manage",
     list: [],
   },
+  {
+    title: "Quản lý Đánh Giá",
+    href: "/feedback/manage",
+    list: [],
+  },
 ];

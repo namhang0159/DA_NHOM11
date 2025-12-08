@@ -1,212 +1,347 @@
-const orderid = require('order-id')('key');
-const { Sequelize } = require('sequelize');
+const { Sequelize } = require("sequelize");
 const { Op } = require("sequelize");
 
-const Order = require('../models/order');
-const User = require('../models/user');
-const Customer_Info = require('../models/customer_info');
-const Order_State = require('../models/order_state');
-const Product_Variant = require('../models/product_variant');
-const Product = require('../models/product');
-const Product_Price_History = require('../models/product_price_history');
-const Order_Item = require('../models/order_item');
-const Feedback = require('../models/feedback');
-const Order_Status_Change_History = require('../models/order_status_change_history');
-const Colour = require('../models/colour');
-const Size = require('../models/size');
+// Import Models
+const Order = require("../models/order");
+const User = require("../models/user");
+const Customer_Info = require("../models/customer_info");
+const Product_Variant = require("../models/product_variant");
+const Product = require("../models/product");
+const Order_Item = require("../models/order_item");
+const Feedback = require("../models/feedback");
+const Order_Status_Change_History = require("../models/order_status_change_history");
+const Colour = require("../models/colour");
+const Size = require("../models/size");
 
+// 1. TẠO FEEDBACK
 let create = async (req, res, next) => {
-    let customer_id = req.token.customer_id;
-    if (!customer_id) return res.status(400).send({ message: 'Access Token không hợp lệ' });
-    let product_variant_id = req.body.product_variant_id;
-    if (product_variant_id === undefined) return res.status(400).send('Trường product_variant_id không tồn tại');
-    let rate = req.body.rate;
-    if (rate === undefined) return res.status(400).send('Trường rate không tồn tại');
-    let content = req.body.content;
-    if (content === undefined) return res.status(400).send('Trường content không tồn tại');
+  // Lấy customer_id từ token (admin role=1, user role=2)
+  // Nếu middleware trả về req.token.id thì dùng req.token.id
+  let customer_id = req.token.customer_id || req.token.id;
 
-    // Kiểm tra xem customer_id được gửi đến có tồn tại hay không?
-    try {
-        let customer = await User.findOne({ where: { user_id: customer_id, role_id: 2 } });
-        if (customer == null) return res.status(400).send('Customer này không tồn tại');
-    } catch (err) {
-        console.log(err);
-        return res.status(500).send('Gặp lỗi khi tải dữ liệu vui lòng thử lại');
-    }
+  if (!customer_id)
+    return res.status(400).send({ message: "Access Token không hợp lệ" });
 
-    // Kiểm tra xem product_variant_id được gửi đến có tồn tại hay không?
-    try {
-        var productVariant = await Product_Variant.findOne({ where: { product_variant_id } });
-        if (productVariant == null) return res.status(400).send('Product Variant này không tồn tại');
-    } catch (err) {
-        console.log(err);
-        return res.status(500).send('Gặp lỗi khi tải dữ liệu vui lòng thử lại');
-    }
+  let { product_variant_id, rate, content } = req.body;
 
-    // Kiểm tra xem feedback với customer_id và product_variant_id được gửi đến đã tồn tại hay chưa?
-    try {
-        let feedback = await Feedback.findOne({ where: { user_id: customer_id, product_variant_id } });
-        if (feedback) return res.status(400).send('Feedback đã tồn tại');
-    } catch (err) {
-        console.log(err);
-        return res.status(500).send('Gặp lỗi khi tải dữ liệu vui lòng thử lại');
-    }
+  if (!product_variant_id)
+    return res.status(400).send("Thiếu product_variant_id");
+  if (rate === undefined) return res.status(400).send("Thiếu rate");
 
-    try {
-        // Kiểm tra xem customer có id tương ứng đã mua sản phẩn có product_variant_id đã gửi đến hay chưa?
-        let order = await Order.findOne({
-            attributes: ['order_id', 'total_order_value'],
-            include: [
-                {
-                    model: Order_Item, where: { product_variant_id }
-                },
-                {
-                    model: Order_Status_Change_History, where: { state_id: 4 }
-                },
-            ],
-            where: { user_id: customer_id },
+  try {
+    // Check User
+    let customer = await User.findOne({ where: { user_id: customer_id } });
+    if (!customer) return res.status(400).send("Customer không tồn tại");
+
+    // Check Variant
+    var productVariant = await Product_Variant.findOne({
+      where: { product_variant_id },
+    });
+    if (!productVariant)
+      return res.status(400).send("Product Variant không tồn tại");
+
+    // Check trùng lặp
+    let existingFeedback = await Feedback.findOne({
+      where: { user_id: customer_id, product_variant_id },
+    });
+    if (existingFeedback)
+      return res.status(400).send("Bạn đã đánh giá sản phẩm này rồi");
+
+    // Check đã mua hàng (đơn hàng thành công)
+    let order = await Order.findOne({
+      include: [
+        {
+          model: Order_Item,
+          where: { product_variant_id: product_variant_id },
+        },
+        { model: Order_Status_Change_History, where: { state_id: 4 } }, // 4: Đã giao hàng
+      ],
+      where: { user_id: customer_id },
+    });
+
+    if (order) {
+      // Tạo feedback
+      let feedback = await Feedback.create({
+        user_id: customer_id,
+        product_variant_id,
+        rate,
+        content: content || "",
+      });
+
+      // TÍNH TOÁN LẠI RATING
+      let product = await productVariant.getProduct();
+      if (product) {
+        let product_id = product.product_id;
+
+        let [result] = await Feedback.findAll({
+          attributes: [
+            [Sequelize.fn("avg", Sequelize.col("rate")), "avg"],
+            [Sequelize.fn("count", Sequelize.col("rate")), "count"],
+          ],
+          include: {
+            model: Product_Variant,
+            where: { product_id: product_id },
+          },
         });
 
-        if (order) {
-            let feedback = await Feedback.create({ user_id: customer_id, product_variant_id, rate, content });
+        let rating = parseFloat(result.dataValues.avg || 0).toFixed(1);
+        let feedback_quantity = parseInt(result.dataValues.count || 0);
 
-            // Lấy tất cả Feedback có product tương ứng với feedback vừa tạo
-            // tính rate trung bình và đếm số lượng
-            let product = await productVariant.getProduct();
-            let product_id = product.product_id;
-            let [result] = await Feedback.findAll({
-                attributes: [
-                    [Sequelize.fn('avg', Sequelize.col('rate')), 'avg'],
-                    [Sequelize.fn('count', Sequelize.col('rate')), 'count']
-                ],
-                include: { model: Product_Variant, where: { product_id } },
-            });
+        await product.update({ rating, feedback_quantity });
+      }
 
-            // Cập nhật lại Rating và feedbackQuantity cho product tương ứng
-            let rating = parseFloat(result.dataValues.avg)
-            let feedback_quantity = parseInt(result.dataValues.count)
-            await product.update({ rating, feedback_quantity })
-
-            return res.send(feedback);
-        } else {
-            return res.status(400).send('Feedback không hợp lệ');
-        }
-    } catch (err) {
-        console.log(err);
-        return res.status(500).send('Gặp lỗi khi tải dữ liệu vui lòng thử lại');
+      return res.status(200).send(feedback);
+    } else {
+      return res
+        .status(400)
+        .send("Bạn chưa mua sản phẩm này hoặc đơn hàng chưa hoàn thành");
     }
-}
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send("Lỗi server: " + err.message);
+  }
+};
 
 let update = async (req, res, next) => {
-    let feedback_id = req.body.feedback_id;
-    if (feedback_id === undefined) return res.status(400).send('Trường feedback_id không tồn tại');
-    let rate = req.body.rate;
-    if (rate === undefined) return res.status(400).send('Trường rate không tồn tại');
-    let content = req.body.content;
-    if (content === undefined) return res.status(400).send('Trường content không tồn tại');
+  let { feedback_id, rate, content } = req.body;
+  if (!feedback_id) return res.status(400).send("Thiếu feedback_id");
 
-    try {
-        let feedback = await Feedback.findOne({ where: { feedback_id } })
-        if (!feedback) res.status(400).send('Feedback này không tồn tại');
-        else {
-            await feedback.update({ rate, content })
+  try {
+    let feedback = await Feedback.findByPk(feedback_id);
+    if (!feedback) return res.status(400).send("Feedback không tồn tại");
 
-            // Lấy tất cả Feedback có product tương ứng với feedback vừa tạo
-            // tính rate trung bình
-            let productVariant = await feedback.getProduct_variant();
-            let product = await productVariant.getProduct();
-            let product_id = product.product_id;
-            let [result] = await Feedback.findAll({
-                attributes: [
-                    [Sequelize.fn('avg', Sequelize.col('rate')), 'avg'],
-                ],
-                include: { model: Product_Variant, where: { product_id } },
-            });
+    await feedback.update({ rate, content });
 
-            // Cập nhật lại Rating và feedbackQuantity cho product tương ứng
-            let rating = parseFloat(result.dataValues.avg)
-            await product.update({ rating })
+    let productVariant = await Product_Variant.findByPk(
+      feedback.product_variant_id
+    );
 
-            return res.send({ message: 'Cập nhật feedback thành công!' })
-        }
-    } catch (err) {
-        console.log(err)
-        return res.status(500).send('Gặp lỗi khi tải dữ liệu vui lòng thử lại');
-    }
-}
-
-let detail = async (req, res, next) => {
-    let customer_id = req.token.customer_id;
-    if (!customer_id) return res.status(400).send({ message: 'Access Token không hợp lệ' });
-    let product_variant_id = req.params.product_variant_id;
-    if (product_variant_id === undefined) return res.status(400).send('Trường product_variant_id không tồn tại');
-    try {
-        let customer = await User.findOne({ where: { user_id: customer_id, role_id: 2 } });
-        if (customer == null) return res.status(400).send('Customer này không tồn tại');
-        let productVariant = await Product_Variant.findOne({ where: { product_variant_id } });
-        if (productVariant == null) return res.status(400).send('Product Variant này không tồn tại');
-
-        let feedback = await Feedback.findOne({
-            attributes: ['feedback_id', 'rate', 'content'],
-            where: { user_id: customer_id, product_variant_id }
-        })
-        if (!feedback) res.status(400).send('Feedback này không tồn tại');
-        else return res.send(feedback)
-    } catch (err) {
-        console.log(err)
-        return res.status(500).send('Gặp lỗi khi tải dữ liệu vui lòng thử lại');
-    }
-}
-
-let list = async (req, res, next) => {
-    let product_id = req.params.product_id;
-    if (product_id === undefined) return res.status(400).send('Trường product_id không tồn tại');
-
-    try {
-        let product = await Product.findOne({ where: { product_id } })
-        if (product == null) return res.status(400).send('Product này không tồn tại')
-
-        let feedbackList = await Feedback.findAll({
-            attributes: ['rate', 'content', 'created_at'],
-            include: [
-                {
-                    model: User,
-                    include: [
-                        { model: Customer_Info, attributes: ['customer_name'] }
-                    ]
-                },
-                {
-                    model: Product_Variant, where: { product_id },
-                    include: [
-                        { model: Colour, attributes: ['colour_name'] },
-                        { model: Size, attributes: ['size_name'] },
-                    ]
-                },
-            ],
-            order: [['created_at', 'DESC']]
+    if (productVariant) {
+      let product = await productVariant.getProduct();
+      if (product) {
+        let product_id = product.product_id;
+        let [result] = await Feedback.findAll({
+          attributes: [[Sequelize.fn("avg", Sequelize.col("rate")), "avg"]],
+          include: { model: Product_Variant, where: { product_id } },
         });
 
-        feedbackList = feedbackList.map((feedback) => {
-            return {
-                customer: feedback.User.Customer_Info.customer_name,
-                rate: feedback.rate,
-                colour: feedback.product_variant.Colour.colour_name,
-                size: feedback.product_variant.Size.size_name,
-                content: feedback.content,
-                created_at: feedback.created_at
-            }
-        })
-
-        return res.send(feedbackList)
-    } catch (err) {
-        console.log(err)
-        return res.status(500).send('Gặp lỗi khi tải dữ liệu vui lòng thử lại');
+        let rating = parseFloat(result.dataValues.avg || 0).toFixed(1);
+        await product.update({ rating });
+      }
     }
-}
+
+    return res.send({ message: "Cập nhật feedback thành công!" });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send("Lỗi server");
+  }
+};
+
+// 3. CHI TIẾT
+let detail = async (req, res, next) => {
+  let customer_id = req.token.customer_id || req.token.id;
+  let product_variant_id = req.params.product_variant_id;
+
+  try {
+    let feedback = await Feedback.findOne({
+      attributes: ["feedback_id", "rate", "content"],
+      where: { user_id: customer_id, product_variant_id },
+    });
+    if (!feedback) return res.status(404).send("Chưa có đánh giá");
+    return res.send(feedback);
+  } catch (err) {
+    return res.status(500).send("Lỗi server");
+  }
+};
+
+// 4. LIST (PUBLIC)
+let list = async (req, res, next) => {
+  let product_id = req.params.product_id;
+
+  try {
+    let feedbackList = await Feedback.findAll({
+      attributes: ["rate", "content", "created_at"],
+      include: [
+        {
+          model: User,
+          attributes: ["email"],
+          include: [{ model: Customer_Info, attributes: ["customer_name"] }],
+        },
+        {
+          model: Product_Variant,
+          where: { product_id },
+          attributes: ["product_variant_id"],
+          include: [
+            { model: Colour, attributes: ["colour_name"] },
+            { model: Size, attributes: ["size_name"] },
+          ],
+        },
+      ],
+      order: [["created_at", "DESC"]],
+    });
+
+    let result = feedbackList.map((fb) => ({
+      customer:
+        fb.User && fb.User.Customer_Info
+          ? fb.User.Customer_Info.customer_name
+          : "Ẩn danh",
+      rate: fb.rate,
+      colour:
+        fb.Product_Variant && fb.Product_Variant.Colour
+          ? fb.Product_Variant.Colour.colour_name
+          : "",
+      size:
+        fb.Product_Variant && fb.Product_Variant.Size
+          ? fb.Product_Variant.Size.size_name
+          : "",
+      content: fb.content,
+      created_at: fb.created_at,
+    }));
+
+    return res.send(result);
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send("Lỗi server");
+  }
+};
+
+let getAllFeedbacks = async (req, res, next) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+
+    const { count, rows } = await Feedback.findAndCountAll({
+      limit: limit,
+      offset: offset,
+      order: [["created_at", "DESC"]],
+      include: [
+        {
+          model: User,
+          attributes: ["email", "user_id"],
+          include: [{ model: Customer_Info, attributes: ["customer_name"] }],
+        },
+        {
+          model: Product_Variant,
+
+          attributes: ["product_variant_id"],
+          paranoid: false,
+          include: [
+            {
+              model: Product,
+              attributes: ["product_name"],
+              paranoid: false,
+            },
+            { model: Colour, attributes: ["colour_name"] },
+            { model: Size, attributes: ["size_name"] },
+          ],
+        },
+      ],
+      distinct: true,
+    });
+
+    const formattedData = rows.map((fb) => {
+      const variant = fb.product_variant || fb.Product_Variant;
+
+      const product = variant ? variant.Product || variant.product : null;
+      const color = variant ? variant.Colour || variant.colour : null;
+      const size = variant ? variant.Size || variant.size : null;
+
+      return {
+        feedback_id: fb.feedback_id,
+        user_email: fb.User ? fb.User.email : "Deleted User",
+        customer_name:
+          fb.User && fb.User.Customer_Info
+            ? fb.User.Customer_Info.customer_name
+            : "N/A",
+
+        product_name: product
+          ? product.product_name
+          : "Sản phẩm không xác định",
+
+        variant_info: variant
+          ? `${color ? color.colour_name : "?"} - ${
+              size ? size.size_name : "?"
+            }`
+          : "Biến thể không xác định",
+
+        rate: fb.rate,
+        content: fb.content,
+        created_at: fb.created_at,
+      };
+    });
+
+    return res.status(200).json({
+      totalItems: count,
+      totalPages: Math.ceil(count / limit),
+      currentPage: page,
+      data: formattedData,
+    });
+  } catch (err) {
+    console.log("Error getAllFeedbacks:", err);
+    return res.status(500).send("Lỗi lấy danh sách feedback");
+  }
+};
+
+let deleteFeedback = async (req, res, next) => {
+  let feedback_id = req.params.id;
+
+  try {
+    let feedback = await Feedback.findByPk(feedback_id);
+    if (!feedback) {
+      return res.status(404).send("Feedback không tồn tại");
+    }
+
+    // Lấy ID variant để tính lại điểm sau khi xóa
+    let variantId = feedback.product_variant_id;
+
+    // Xóa feedback
+    await feedback.destroy();
+
+    // Tính toán lại điểm số
+
+    let productVariant = await Product_Variant.findByPk(variantId, {
+      paranoid: false,
+    });
+
+    if (productVariant) {
+      let product = await productVariant.getProduct({ paranoid: false });
+      if (product) {
+        let product_id = product.product_id;
+
+        let [result] = await Feedback.findAll({
+          attributes: [
+            [Sequelize.fn("avg", Sequelize.col("rate")), "avg"],
+            [Sequelize.fn("count", Sequelize.col("rate")), "count"],
+          ],
+          include: {
+            model: Product_Variant,
+            where: { product_id },
+            paranoid: false, // Tính cả các feedback của variant đã xóa
+          },
+        });
+
+        let rating = parseFloat(result.dataValues.avg || 0).toFixed(1);
+        let feedback_quantity = parseInt(result.dataValues.count || 0);
+
+        await product.update({ rating, feedback_quantity });
+      }
+    }
+
+    return res
+      .status(200)
+      .send({ message: "Xóa feedback và cập nhật điểm đánh giá thành công" });
+  } catch (err) {
+    console.log("Error deleteFeedback:", err);
+    return res.status(500).send("Lỗi khi xóa feedback");
+  }
+};
 
 module.exports = {
-    create,
-    update,
-    detail,
-    list
-}
+  create,
+  update,
+  detail,
+  list,
+  getAllFeedbacks,
+  deleteFeedback,
+};
