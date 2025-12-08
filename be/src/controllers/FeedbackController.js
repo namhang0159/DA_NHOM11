@@ -317,7 +317,7 @@ let deleteFeedback = async (req, res, next) => {
           include: {
             model: Product_Variant,
             where: { product_id },
-            paranoid: false, // Tính cả các feedback của variant đã xóa
+            paranoid: false,
           },
         });
 
@@ -343,11 +343,11 @@ let toggleVisibility = async (req, res, next) => {
     let feedback = await Feedback.findByPk(feedback_id);
     if (!feedback) return res.status(404).send("Feedback không tồn tại");
 
-    // 1. Đảo ngược trạng thái (True -> False, False -> True)
+    //  Đảo ngược trạng thái (True -> False, False -> True)
     let newStatus = !feedback.is_visible;
     await feedback.update({ is_visible: newStatus });
 
-    // 2. TÍNH LẠI RATING CHO SẢN PHẨM (Chỉ tính các feedback đang hiện)
+    //  TÍNH LẠI RATING CHO SẢN PHẨM (Chỉ tính các feedback đang hiện)
     let productVariant = await feedback.getProduct_variant(); // Hàm sequelize tự sinh
     if (productVariant) {
       let product = await productVariant.getProduct();
@@ -360,7 +360,7 @@ let toggleVisibility = async (req, res, next) => {
             [Sequelize.fn("count", Sequelize.col("rate")), "count"],
           ],
           include: { model: Product_Variant, where: { product_id } },
-          // QUAN TRỌNG: Chỉ tính điểm các comment ĐANG HIỆN
+          // tính điểm các comment ĐANG HIỆN
           where: { is_visible: true },
         });
 

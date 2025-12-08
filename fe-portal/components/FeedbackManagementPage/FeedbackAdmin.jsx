@@ -91,18 +91,17 @@ const FeedbackAdmin = () => {
               <th>ID</th>
               <th>Khách hàng</th>
               <th>Sản phẩm</th>
-              {/* <th>Biến thể</th> */}
+
               <th>Đánh giá</th>
               <th>Nội dung</th>
               <th>Ngày tạo</th>
-              <th>Trạng thái</th> {/* SỬA LỖI 2: Thêm cột này cho khớp */}
+              <th>Trạng thái</th>
               <th>Hành động</th>
             </tr>
           </thead>
           <tbody>
             {feedbacks.length > 0 ? (
               feedbacks.map((item) => (
-                // Thêm class mờ đi nếu đang ẩn
                 <tr
                   key={item.feedback_id}
                   className={!item.is_visible ? "opacity-50" : ""}
@@ -116,7 +115,6 @@ const FeedbackAdmin = () => {
                     <div>{item.product_name}</div>
                     <span className="badge-variant">{item.variant_info}</span>
                   </td>
-                  {/* Gộp biến thể vào cột sản phẩm cho đỡ chật, hoặc bỏ comment th trên */}
 
                   <td className="text-warning text-nowrap">
                     {renderStars(item.rate)} ({item.rate})
@@ -125,7 +123,6 @@ const FeedbackAdmin = () => {
 
                   <td>{formatDate(item.created_at)}</td>
 
-                  {/* Nút Ẩn/Hiện */}
                   <td>
                     <button
                       className={`btn-toggle ${
