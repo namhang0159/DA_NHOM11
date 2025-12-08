@@ -3,17 +3,14 @@ import axios from "axios";
 const API_URL = "http://localhost:8080/api/feedback";
 
 const getAuthHeader = () => {
-  // Check để tránh lỗi khi render phía server của Next.js
   if (typeof window === "undefined") return {};
 
   try {
-    // 1. Lấy chuỗi JSON từ key 'admin-storage'
     const storageItem = localStorage.getItem("admin-storage");
     console.log("admin-storage from localStorage:", storageItem);
 
     if (!storageItem) return {};
 
-    // 2. Parse chuỗi JSON đó ra thành Object
     const parsedData = JSON.parse(storageItem);
 
     const token = parsedData?.state?.adminInfo?.accessToken;
@@ -34,7 +31,7 @@ export const getAllFeedbacks = async (page = 1, limit = 10) => {
   try {
     const response = await axios.get(
       `${API_URL}/all?page=${page}&limit=${limit}`,
-      getAuthHeader() // Tự động lấy token
+      getAuthHeader()
     );
     return response.data;
   } catch (error) {
@@ -45,10 +42,7 @@ export const getAllFeedbacks = async (page = 1, limit = 10) => {
 
 export const deleteFeedback = async (id) => {
   try {
-    const response = await axios.delete(
-      `${API_URL}/${id}`,
-      getAuthHeader() // Tự động lấy token
-    );
+    const response = await axios.delete(`${API_URL}/${id}`, getAuthHeader());
     return response.data;
   } catch (error) {
     console.error("Lỗi xóa feedback:", error);
@@ -65,6 +59,19 @@ export const toggleFeedbackVisibility = async (id) => {
     return response.data;
   } catch (error) {
     console.error("Lỗi toggle status:", error);
+    throw error;
+  }
+};
+export const replyToFeedback = async (id, replyContent) => {
+  try {
+    const response = await axios.put(
+      `${API_URL}/reply/${id}`,
+      { reply: replyContent },
+      getAuthHeader()
+    );
+    return response.data;
+  } catch (error) {
+    console.error("Lỗi trả lời feedback:", error);
     throw error;
   }
 };

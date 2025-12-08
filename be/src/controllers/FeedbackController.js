@@ -13,10 +13,7 @@ const Order_Status_Change_History = require("../models/order_status_change_histo
 const Colour = require("../models/colour");
 const Size = require("../models/size");
 
-// 1. TẠO FEEDBACK
 let create = async (req, res, next) => {
-  // Lấy customer_id từ token (admin role=1, user role=2)
-  // Nếu middleware trả về req.token.id thì dùng req.token.id
   let customer_id = req.token.customer_id || req.token.id;
 
   if (!customer_id)
@@ -154,7 +151,6 @@ let detail = async (req, res, next) => {
   }
 };
 
-// 4. LIST (PUBLIC)
 let list = async (req, res, next) => {
   let product_id = req.params.product_id;
 
@@ -267,6 +263,8 @@ let getAllFeedbacks = async (req, res, next) => {
 
         rate: fb.rate,
         content: fb.content,
+        reply: fb.reply,
+        is_visible: fb.is_visible,
         created_at: fb.created_at,
       };
     });
@@ -381,6 +379,27 @@ let toggleVisibility = async (req, res, next) => {
   }
 };
 
+let replyFeedback = async (req, res, next) => {
+  let feedback_id = req.params.id;
+  let { reply } = req.body; // Lấy nội dung trả lời từ client gửi lên
+
+  try {
+    let feedback = await Feedback.findByPk(feedback_id);
+    if (!feedback) return res.status(404).send("Feedback không tồn tại");
+
+    // Update cột reply
+    await feedback.update({ reply: reply });
+
+    return res.status(200).send({
+      message: "Đã gửi câu trả lời thành công",
+      reply: reply,
+    });
+  } catch (err) {
+    console.log("Error replyFeedback:", err);
+    return res.status(500).send("Lỗi server");
+  }
+};
+
 module.exports = {
   create,
   update,
@@ -389,4 +408,5 @@ module.exports = {
   getAllFeedbacks,
   deleteFeedback,
   toggleVisibility,
+  replyFeedback,
 };

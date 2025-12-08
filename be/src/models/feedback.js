@@ -32,6 +32,10 @@ const Feedback = sequelize.define(
       type: DataTypes.BOOLEAN,
       defaultValue: true,
     },
+    reply: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
   },
   {
     timestamps: true,

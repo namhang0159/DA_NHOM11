@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
-// --- SỬA LỖI 1: THÊM IMPORT toggleFeedbackVisibility ---
+
 import {
   getAllFeedbacks,
   deleteFeedback,
-  toggleFeedbackVisibility, // <--- THÊM CÁI NÀY VÀO
+  toggleFeedbackVisibility,
+  replyToFeedback,
 } from "../../services/feedbackService";
 
 const FeedbackAdmin = () => {
@@ -11,6 +12,10 @@ const FeedbackAdmin = () => {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
+
+  const [replyModalOpen, setReplyModalOpen] = useState(false);
+  const [currentFeedbackId, setCurrentFeedbackId] = useState(null);
+  const [replyText, setReplyText] = useState("");
 
   const fetchFeedbacks = async (pageNumber) => {
     setLoading(true);
@@ -33,10 +38,7 @@ const FeedbackAdmin = () => {
 
   const handleToggle = async (id, currentStatus) => {
     try {
-      // Bây giờ đã import rồi thì dòng này mới chạy được
       await toggleFeedbackVisibility(id);
-
-      // Cập nhật giao diện
       setFeedbacks(
         feedbacks.map((item) =>
           item.feedback_id === id
@@ -45,7 +47,7 @@ const FeedbackAdmin = () => {
         )
       );
     } catch (error) {
-      console.error(error); // Log ra để xem lỗi gì nếu có
+      console.error(error);
       alert("Lỗi cập nhật trạng thái!");
     }
   };
@@ -63,6 +65,33 @@ const FeedbackAdmin = () => {
       } catch (error) {
         alert("Xóa thất bại!");
       }
+    }
+  };
+
+  const openReplyModal = (feedback) => {
+    setCurrentFeedbackId(feedback.feedback_id);
+    setReplyText(feedback.reply || "");
+    setReplyModalOpen(true);
+  };
+
+  const handleSendReply = async () => {
+    if (!replyText.trim()) return alert("Vui lòng nhập nội dung!");
+
+    try {
+      await replyToFeedback(currentFeedbackId, replyText);
+      alert("Đã gửi câu trả lời!");
+
+      setFeedbacks(
+        feedbacks.map((item) =>
+          item.feedback_id === currentFeedbackId
+            ? { ...item, reply: replyText }
+            : item
+        )
+      );
+
+      setReplyModalOpen(false); // Đóng modal
+    } catch (error) {
+      alert("Lỗi khi gửi trả lời!");
     }
   };
 
@@ -91,9 +120,9 @@ const FeedbackAdmin = () => {
               <th>ID</th>
               <th>Khách hàng</th>
               <th>Sản phẩm</th>
-
               <th>Đánh giá</th>
               <th>Nội dung</th>
+              <th>Trả lời</th>
               <th>Ngày tạo</th>
               <th>Trạng thái</th>
               <th>Hành động</th>
@@ -119,7 +148,26 @@ const FeedbackAdmin = () => {
                   <td className="text-warning text-nowrap">
                     {renderStars(item.rate)} ({item.rate})
                   </td>
-                  <td>{item.content}</td>
+
+                  <td>
+                    <div>{item.content}</div>
+                    {item.reply && (
+                      <div className="admin-reply-box">
+                        <small>
+                          <b>Admin:</b> {item.reply}
+                        </small>
+                      </div>
+                    )}
+                  </td>
+
+                  <td>
+                    <button
+                      className="btn-reply"
+                      onClick={() => openReplyModal(item)}
+                    >
+                      {item.reply ? "Sửa" : "Trả lời"}
+                    </button>
+                  </td>
 
                   <td>{formatDate(item.created_at)}</td>
 
@@ -136,7 +184,6 @@ const FeedbackAdmin = () => {
                     </button>
                   </td>
 
-                  {/* Nút Xóa */}
                   <td>
                     <button
                       className="btn-delete"
@@ -149,7 +196,7 @@ const FeedbackAdmin = () => {
               ))
             ) : (
               <tr>
-                <td colSpan="8" className="text-center">
+                <td colSpan="9" className="text-center">
                   Chưa có đánh giá nào.
                 </td>
               </tr>
@@ -170,8 +217,33 @@ const FeedbackAdmin = () => {
         </button>
       </div>
 
+      {replyModalOpen && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>Trả lời khách hàng</h3>
+            <textarea
+              rows="4"
+              placeholder="Nhập câu trả lời của shop..."
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+            ></textarea>
+            <div className="modal-actions">
+              <button
+                className="btn-cancel"
+                onClick={() => setReplyModalOpen(false)}
+              >
+                Hủy
+              </button>
+              <button className="btn-confirm" onClick={handleSendReply}>
+                Gửi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
-        /* ... Các CSS cũ giữ nguyên ... */
+        /* CSS Cũ */
         .feedback-wrapper {
           padding: 20px;
           background: #fff;
@@ -248,7 +320,7 @@ const FeedbackAdmin = () => {
           color: #adb5bd;
         }
 
-        /* --- SỬA LỖI 3: THÊM CSS CHO NÚT ẨN/HIỆN MÀY ĐANG THIẾU --- */
+        /* Nút Ẩn/Hiện */
         .opacity-50 {
           background-color: #f9f9f9;
           color: #999;
@@ -269,13 +341,91 @@ const FeedbackAdmin = () => {
         .btn-hide:hover {
           background-color: #e0a800;
         }
-
         .btn-show {
           background-color: #28a745;
           color: white;
         }
         .btn-show:hover {
           background-color: #218838;
+        }
+
+        /* --- CSS MỚI CHO TRẢ LỜI --- */
+        .admin-reply-box {
+          margin-top: 5px;
+          padding: 5px 8px;
+          background: #e6f7ff;
+          border-left: 3px solid #1890ff;
+          font-size: 0.9em;
+          color: #333;
+        }
+
+        .btn-reply {
+          background: #17a2b8;
+          color: white;
+          border: none;
+          padding: 5px 10px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 13px;
+        }
+        .btn-reply:hover {
+          background: #138496;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.5);
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          z-index: 1000;
+        }
+        .modal-content {
+          background: white;
+          padding: 20px;
+          border-radius: 8px;
+          width: 400px;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+        }
+        .modal-content h3 {
+          margin-top: 0;
+          margin-bottom: 15px;
+          color: #333;
+        }
+        .modal-content textarea {
+          width: 100%;
+          padding: 10px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          margin-bottom: 15px;
+          resize: vertical;
+          font-family: inherit;
+        }
+        .modal-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 10px;
+        }
+        .btn-cancel {
+          background: #6c757d;
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 4px;
+          cursor: pointer;
+        }
+        .btn-confirm {
+          background: #007bff;
+          color: white;
+          border: none;
+          padding: 8px 16px;
+          border-radius: 4px;
+          cursor: pointer;
         }
       `}</style>
     </div>

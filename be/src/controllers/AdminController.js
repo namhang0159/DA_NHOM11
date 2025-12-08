@@ -48,7 +48,7 @@ let login = async (req, res, next) => {
         email: admin.email,
         role_id: admin.role_id,
       },
-      process.env.ACCESSTOKEN_SECRET_KEY, // Đảm bảo trong .env có biến này
+      process.env.ACCESSTOKEN_SECRET_KEY,
       { expiresIn: "1d" }
     );
 
