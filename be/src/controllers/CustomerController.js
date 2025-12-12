@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 const bcrypt = require("bcrypt");
+=======
+const bcrypt = require("bcryptjs");
+>>>>>>> 55443dae98fa1d04415528a372a95857fc393a22
 const jwt = require("jsonwebtoken");
 const { jwtDecode } = require("jwt-decode");
 

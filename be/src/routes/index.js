@@ -9,6 +9,11 @@ const productRouter = require('./product');
 const product_variantRouter = require('./product_variant');
 const order = require('./order');
 const feedback = require('./feedback');
+<<<<<<< HEAD
+=======
+const report = require('./report');
+const post = require('./post');
+>>>>>>> 55443dae98fa1d04415528a372a95857fc393a22
 
 function setRoute(server) {
 
@@ -30,6 +35,13 @@ function setRoute(server) {
 
     server.use('/api/feedback', feedback);
 
+<<<<<<< HEAD
+=======
+    server.use('/api/report' , report);
+
+    server.use('/api/post', post);
+
+>>>>>>> 55443dae98fa1d04415528a372a95857fc393a22
 }
 
 module.exports = setRoute;

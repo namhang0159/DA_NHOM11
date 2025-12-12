@@ -24,4 +24,18 @@ export const menu = [
     href: "/feedback/manage",
     list: [],
   },
+<<<<<<< HEAD
+=======
+  {
+    title: "Quản lý Bài Viết",
+    href: "/posts",
+    list: [],
+  },
+  {
+    title: "Quản lý Báo Cáo",
+    href: "/admin/reports",
+    list: [],
+  },
+
+>>>>>>> 55443dae98fa1d04415528a372a95857fc393a22
 ];
