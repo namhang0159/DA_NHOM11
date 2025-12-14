@@ -29,7 +29,7 @@ Hệ thống được xây dựng theo mô hình **MVC**, sử dụng **React + 
 ```bash
 npm install
 node ./src/server.js
-
+```
 ### FrontEnd
 ```bash
 npm install
