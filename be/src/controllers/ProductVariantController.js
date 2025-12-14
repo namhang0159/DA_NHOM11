@@ -89,7 +89,7 @@ let update = async (req, res, next) => {
       for (let { image_id, path: imgPath } of productVariant.Product_Images) {
         try {
           const fileName = imgPath.split("/").pop();
-          const fileLocation = path.join(__basedir, "data", "img", fileName);
+          const fileLocation = path.join(__basedir, "data", "images", fileName);
           if (fs.existsSync(fileLocation)) {
             fs.unlinkSync(fileLocation);
           }
