@@ -3,7 +3,7 @@ const path = require("path");
 const { v4: uuidv4 } = require("uuid");
 const multer = require("multer");
 
-const uploadDir = path.join(__dirname, "../data/img");
+const uploadDir = path.resolve("data/images");
 
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -35,6 +35,17 @@ const upload = multer({
   },
 });
 
-const uploadImage = upload.array("product_images", 6);
+const fileFilter = (req, file, cb) => {
+  if (file.mimetype && file.mimetype.startsWith("image/")) {
+    cb(null, true);
+  } else {
+    cb(new Error("Invalid mime type"), false);
+  }
+};
+
+const uploadImage = multer({
+  storage,
+  fileFilter,
+}).array("files", 6);
 
 module.exports = uploadImage;

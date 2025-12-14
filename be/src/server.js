@@ -23,10 +23,10 @@ server.use(express.json());
 server.use(express.urlencoded({ extended: true }));
 
 server.use("/static", express.static(path.join(__dirname, "public")));
-server.use(
-  "/static/images",
-  express.static(path.join(__dirname, "data", "img"))
-);
+
+server.use("/static/images", express.static(path.resolve("data/images")));
+
+console.log("STATIC IMAGE PATH =", path.join(__dirname, "data", "images"));
 
 setRouter(server);
 
