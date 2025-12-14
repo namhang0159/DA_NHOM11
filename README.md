@@ -34,3 +34,8 @@ node ./src/server.js
 ```bash
 npm install
 npm run dev
+```
+### Tài khoản
+Email:an@gmail.com
+Password:123456
+
