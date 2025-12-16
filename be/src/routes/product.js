@@ -1,10 +1,11 @@
 const express = require("express");
 
 const ProductController = require("../controllers/ProductController");
+const uploadImage = require("../midlewares/uploadImage");
 
 let router = express.Router();
 
-router.post("/create", ProductController.create);
+router.post("/create", uploadImage, ProductController.create);
 
 router.put("/update", ProductController.update);
 

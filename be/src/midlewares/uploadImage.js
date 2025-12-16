@@ -10,42 +10,26 @@ if (!fs.existsSync(uploadDir)) {
 }
 
 const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
+  destination: (req, file, cb) => {
     cb(null, uploadDir);
   },
-  filename: function (req, file, cb) {
-    let fileExtension = "";
-    if (file.mimetype === "image/png") fileExtension = ".png";
-    else if (file.mimetype === "image/jpg" || file.mimetype === "image/jpeg")
-      fileExtension = ".jpg";
-
-    const uniqueName = uuidv4() + fileExtension;
-    cb(null, uniqueName);
-  },
-});
-
-const upload = multer({
-  storage,
-  fileFilter: (req, file, cb) => {
-    if (["image/png", "image/jpg", "image/jpeg"].includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Invalid mime type"));
-    }
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || ".jpg";
+    cb(null, uuidv4() + ext);
   },
 });
 
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype && file.mimetype.startsWith("image/")) {
+  if (["image/png", "image/jpg", "image/jpeg"].includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error("Invalid mime type"), false);
+    cb(new Error("Invalid image type"), false);
   }
 };
 
 const uploadImage = multer({
   storage,
   fileFilter,
-}).array("files", 6);
+}).array("product_images", 6);
 
 module.exports = uploadImage;
