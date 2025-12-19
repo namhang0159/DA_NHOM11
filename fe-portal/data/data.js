@@ -1,0 +1,29 @@
+export const menu = [
+  {
+    title: "Quản lý danh mục",
+    href: "/catalog/manage",
+    list: [],
+  },
+  {
+    title: "Quản lý sản phẩm",
+    href: "/product/manage",
+    list: [],
+  },
+  {
+    title: "Quản lý đơn hàng",
+    href: "/order/manage",
+    list: [],
+  },
+  {
+    title: "Quản lý Khách Hàng",
+    href: "/customer/manage",
+    list: [],
+  },
+  {
+    title: "Quản lý Đánh Giá",
+    href: "/feedback/manage",
+    list: [],
+  },
+
+ 
+];
