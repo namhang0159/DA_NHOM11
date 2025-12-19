@@ -27,14 +27,6 @@ function setRoute(server) {
   server.use("/api/product", productRouter);
 
   server.use("/api/product-variant", product_variantRouter);
-
-  server.use("/api/order", order);
-
-  server.use("/api/feedback", feedback);
-
-  server.use("/api/report", report);
-
-  server.use("/api/post", post);
 }
 
 module.exports = setRoute;
